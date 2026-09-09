@@ -1,0 +1,8 @@
+2026-09-08 23:34:13,188 INFO duplicate_removed raw_quote_id=1 cleaning_notes="duplicate removed"
+2026-09-08 23:34:13,232 INFO missing_fare raw_quote_id=1 dropped because total_fare is null or zero
+2026-09-08 23:34:13,290 INFO statistical_outlier raw_quote_id=4 flagged using Q1=100, Q3=325, IQR=225
+2026-09-08 23:34:13,327 INFO sanity_bounds raw_quote_id=1 dropped because total_fare=500000.0 is outside (0, 200000]
+2026-09-08 23:37:27,264 INFO duplicate_removed raw_quote_id=1 cleaning_notes="duplicate removed"
+2026-09-08 23:37:27,312 INFO missing_fare raw_quote_id=1 dropped because total_fare is null or zero
+2026-09-08 23:37:27,368 INFO statistical_outlier raw_quote_id=4 flagged using Q1=100, Q3=325, IQR=225
+2026-09-08 23:37:27,410 INFO sanity_bounds raw_quote_id=1 dropped because total_fare=500000.0 is outside (0, 200000]

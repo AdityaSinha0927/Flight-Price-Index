@@ -1,0 +1,1 @@
+"""APIx FastAPI package."""
