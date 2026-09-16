@@ -137,11 +137,17 @@ def aggregate_monthly(index_rows: pd.DataFrame) -> pd.DataFrame:
     return rows.groupby(["month", "route"], as_index=False)["index_value"].mean()
 
 
-def build_index(db_path: str | Path = DB_PATH) -> dict[str, int | str]:
+def build_index(db_path: str | Path = DB_PATH) -> dict[str, int | str | None]:
     """Build and upsert daily route and overall index rows."""
     connection = _connection(db_path)
     try:
         averages = _daily_window_averages(_read_clean_quotes(connection))
+        if averages.empty:
+            # Never keep an old index visible after the cleaning pipeline has
+            # rejected every current quote.
+            with connection:
+                connection.execute("DELETE FROM index_values")
+            return {"base_period": None, "rows_written": 0}
         base_period = _base_period(averages)
         output = _build_output(_build_route_values(averages, base_period), base_period)
         with connection:
@@ -163,7 +169,7 @@ def build_index(db_path: str | Path = DB_PATH) -> dict[str, int | str]:
         connection.close()
 
 
-def run_index(db_path: str | Path = DB_PATH) -> dict[str, int | str]:
+def run_index(db_path: str | Path = DB_PATH) -> dict[str, int | str | None]:
     """Compatibility entry point for scheduled index execution."""
     return build_index(db_path)
 

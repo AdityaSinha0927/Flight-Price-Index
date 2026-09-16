@@ -23,6 +23,8 @@ ROOT = Path(__file__).resolve().parents[1]
 SCHEMA_PATH = ROOT / "db" / "schema.sql"
 LOG_PATH = ROOT / "logs" / "cleaning.log"
 LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
+MIN_TOTAL_FARE = 1_000.0
+MAX_TOTAL_FARE = 200_000.0
 
 LOGGER = logging.getLogger("apix.cleaning")
 _HANDLER = logging.FileHandler(LOG_PATH, encoding="utf-8")
@@ -117,8 +119,19 @@ def _drop_missing_and_invalid(frame: pd.DataFrame) -> pd.DataFrame:
         if pd.isna(original_total) or float(original_total) == 0:
             _log("missing_fare", raw_id, "dropped because total_fare is null or zero")
             continue
-        if float(original_total) <= 0 or float(original_total) > 200000 or pd.isna(total) or float(total) <= 0 or float(total) > 200000:
-            _log("sanity_bounds", raw_id, f"dropped because total_fare={original_total} is outside (0, 200000]")
+        if (
+            float(original_total) < MIN_TOTAL_FARE
+            or float(original_total) > MAX_TOTAL_FARE
+            or pd.isna(total)
+            or float(total) < MIN_TOTAL_FARE
+            or float(total) > MAX_TOTAL_FARE
+        ):
+            _log(
+                "sanity_bounds",
+                raw_id,
+                f"dropped because total_fare={original_total} is outside "
+                f"[{MIN_TOTAL_FARE:g}, {MAX_TOTAL_FARE:g}]",
+            )
             continue
         keep_rows.append(row)
     return pd.DataFrame(keep_rows, columns=frame.columns)

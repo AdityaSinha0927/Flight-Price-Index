@@ -1,0 +1,9 @@
+2026-09-12T06:05:50.493137+00:00 [www.goindigo.in] robots.txt check failed; source skipped: <urlopen error [WinError 10013] An attempt was made to access a socket in a way forbidden by its access permissions>
+2026-09-12T06:05:50.868956+00:00 [www.ixigo.com] robots.txt check failed; source skipped: <urlopen error [WinError 10013] An attempt was made to access a socket in a way forbidden by its access permissions>
+2026-09-12T06:08:27.874290+00:00 [www.goindigo.in] robots.txt check failed; source skipped: The read operation timed out
+2026-09-12T06:09:51.701294+00:00 [ixigo] DEL-BOM T1 2026-09-13: Locator.count: selector: expected string, got object
+2026-09-12T06:11:13.357510+00:00 [ixigo] DEL-BOM T7 2026-09-19: Locator.count: selector: expected string, got object
+2026-09-12T06:12:39.336282+00:00 [ixigo] DEL-BOM T30 2026-10-12: Locator.count: selector: expected string, got object
+2026-09-12T06:13:57.013833+00:00 [ixigo] DEL-BLR T1 2026-09-13: Locator.count: selector: expected string, got object
+2026-09-12T06:15:13.571178+00:00 [ixigo] DEL-BLR T7 2026-09-19: Locator.count: selector: expected string, got object
+2026-09-12T06:16:36.779552+00:00 [ixigo] DEL-BLR T30 2026-10-12: Locator.count: selector: expected string, got object

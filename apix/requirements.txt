@@ -1,8 +1,10 @@
 # Python 3.x
 playwright
 fastapi
+uvicorn[standard]
 pandas
 numpy
 streamlit
 plotly
 pytest
+openpyxl

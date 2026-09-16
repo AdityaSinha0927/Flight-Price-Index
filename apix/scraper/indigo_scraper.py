@@ -25,7 +25,15 @@ SOURCE = "indigo"
 BASE_URL = os.getenv("APIX_INDIGO_SEARCH_URL", "https://www.goindigo.in/flight-search.html")
 SELECTORS = {
     "card": ("[data-testid*='flight']", ".flight-result", ".flight-card", "[class*='flight-card']"),
-    "total": ("[data-testid*='total']", ".total-fare", ".fare", "[class*='price']"),
+    # Do not use generic ``.fare`` / ``[class*='price']`` selectors here.
+    # They can match a fare-family badge, flight number, or a promo amount
+    # (for example, ``110``) rather than the payable itinerary total.
+    "total": (
+        "[data-testid*='total-fare']",
+        "[data-testid*='totalFare']",
+        "[aria-label*='total fare']",
+        ".total-fare",
+    ),
     "carrier": ("[data-testid*='carrier']", ".airline", "[class*='airline']"),
     "fare_class": ("[data-testid*='cabin']", ".fare-class", "[class*='fare-class']"),
     "base": ("[data-testid*='base']", ".base-fare", "[class*='base-fare']"),
@@ -44,9 +52,10 @@ def search_url(route: str, travel_date: date) -> str:
 def scrape(route: str, window: str, run_date: date | None = None, db_path=DB_PATH, limiter: DomainRateLimiter | None = None) -> dict | None:
     """Scrape one permitted IndiGo route/window and insert its audit row."""
     validate_inputs(route, window)
-    travel_date = travel_date_for(window, run_date)
+    search_date = run_date or date.today()
+    travel_date = travel_date_for(window, search_date)
     connection = open_database(db_path)
-    if is_already_scraped(connection, SOURCE, route, travel_date, window):
+    if is_already_scraped(connection, SOURCE, route, travel_date, window, search_date):
         connection.close()
         return None
     limiter = limiter or DomainRateLimiter()
@@ -64,13 +73,23 @@ def scrape(route: str, window: str, run_date: date | None = None, db_path=DB_PAT
                 limiter.before_request("www.goindigo.in")
                 page.goto(target_url, wait_until="networkidle", timeout=60_000)
                 page.wait_for_timeout(3_000)
-                fields = extract_lowest_quote(page, SELECTORS)
+                fields = extract_lowest_quote(
+                    page,
+                    SELECTORS,
+                    debug_fares=os.getenv("APIX_DEBUG_FARE_CAPTURE") == "1",
+                )
                 if fields:
-                    quote = build_quote(SOURCE, route, travel_date, window, "ok", **fields)
+                    quote = build_quote(
+                        SOURCE, route, travel_date, window, "ok", search_date=search_date, **fields
+                    )
                 elif page_has_sold_out(page, SOLD_OUT_MARKERS):
-                    quote = build_quote(SOURCE, route, travel_date, window, "sold_out")
+                    quote = build_quote(
+                        SOURCE, route, travel_date, window, "sold_out", search_date=search_date
+                    )
                 else:
-                    quote = build_quote(SOURCE, route, travel_date, window, "no_results")
+                    quote = build_quote(
+                        SOURCE, route, travel_date, window, "no_results", search_date=search_date
+                    )
                 insert_quote(connection, quote)
                 context.close()
                 browser.close()
@@ -82,7 +101,9 @@ def scrape(route: str, window: str, run_date: date | None = None, db_path=DB_PAT
                 time.sleep(30)
             else:
                 log_error(SOURCE, f"{route} {window} {travel_date}: {exc}")
-                quote = build_quote(SOURCE, route, travel_date, window, "error")
+                quote = build_quote(
+                    SOURCE, route, travel_date, window, "error", search_date=search_date
+                )
                 insert_quote(connection, quote)
                 connection.close()
                 return quote

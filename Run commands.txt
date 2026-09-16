@@ -1,0 +1,10 @@
+COMMANDS TO RUN BACKEND AND FRONTEND
+
+BACKEND:-
+F:\anaconda3\python.exe -m uvicornapi.main:app --host 127.0.0.1 --port 8001
+
+FRONTEND:- 
+.\.venv\Scripts\python.exe run_dashboard.py
+
+
+--> open apix folder and then run these commands

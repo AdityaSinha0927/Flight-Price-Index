@@ -44,7 +44,7 @@ The implemented prototype is scoped to the locked-down definition of done:
 | Component | Technology | Notes |
 |---|---|---|
 | Scraper | Python + Playwright | Headless browser for JS-rendered pages |
-| Scheduler | Manual/OS scheduling hook | No scheduler module is included yet |
+| Scheduler | Python daily runner | Runs both sources and then rebuilds cleaned data/index |
 | Raw data store | SQLite | `db/apix.db`, table `raw_quotes` |
 | Cleaning pipeline | Python + pandas | Writes `clean_quotes` |
 | Clean data store | SQLite | Same database file |
@@ -57,7 +57,7 @@ The implemented prototype is scoped to the locked-down definition of done:
 Use Python 3.10 or newer. The implementation was syntax-checked and run with
 Python 3.13 in this environment.
 
-From this directory:
+From the `apix` directory:
 
 ```bash
 pip install -r requirements.txt
@@ -88,20 +88,54 @@ Each scraper checks `robots.txt`, uses a descriptive user agent, waits 3–6
 seconds between requests to the same domain, retries one failed page once
 after 30 seconds, and writes audit rows to `raw_quotes`.
 
-The current environment does not have the Playwright package installed, so
-live scraper execution was not verified here. The mocked integration run
-used the same `raw_quotes` contract instead.
+For selector troubleshooting during an authorized run, set
+`APIX_DEBUG_FARE_CAPTURE=1`. The scraper logs the selected fare element's text
+and result-card HTML, while rejecting a value below INR 1,000 as an
+implausible payable airfare.
 
-### Scheduler
+The runner and browser dependency are locally testable, but the configured
+live sources may refuse automated collection. Ixigo's current `robots.txt`
+disallows `/search/result/`, which is the configured flight-results path, and
+IndiGo returned HTTP 403 when the declared research-bot user agent requested
+its `robots.txt`. The scraper fails closed in both cases and the daily summary
+will report fewer than 12 stored rows. Use an authorized source/API before
+relying on this prototype for unattended live data.
 
-No scheduler process was implemented in this prototype. For a daily OS job,
-invoke the two source `run_daily()` functions from a small cron or Windows
-Task Scheduler wrapper after the environment is configured:
+### Offline demo data
+
+If authorized live collection is unavailable, seed a clearly labelled
+`demo` source with realistic INR fares for a dashboard demonstration:
 
 ```bash
-python -c "from scraper.indigo_scraper import run_daily; run_daily()"
-python -c "from scraper.ixigo_scraper import run_daily; run_daily()"
+python -m db.seed_demo
+python -m pipeline.clean
+python -m index.build_index
 ```
+
+These rows are marked `IndiGo (demo)` and `demo / not live quote`; they are
+only for demonstrating the dashboard and index mechanics.
+
+### Daily runner and scheduler
+
+Use the combined runner instead of invoking one source at a time. One run
+attempts all 2 sources x 2 routes x 3 windows and prints a summary showing how
+many of the expected 12 audit rows are actually stored. It then runs the
+cleaning pipeline and index builder:
+
+```bash
+python -m scraper.scheduler
+```
+
+That command performs one daily cycle and exits. To keep a process running,
+execute a cycle immediately and then repeat it every day at 06:00 local time:
+
+```bash
+python -m scraper.scheduler --loop --at 06:00
+```
+
+Leave that terminal/process running, or configure the one-shot command in
+Windows Task Scheduler. Re-running on the same date is safe: the database
+uniqueness constraint prevents duplicate route/source/window rows.
 
 ### Cleaning pipeline
 
@@ -117,14 +151,39 @@ python -m index.build_index
 
 ### FastAPI server
 
+From the workspace root (`FPI`), run:
+
 ```bash
-python -m uvicorn api.main:app --host 127.0.0.1 --port 8000
+python -m uvicorn apix.api.main:app --host 127.0.0.1 --port 8001 --reload
 ```
 
-The API is available at `http://127.0.0.1:8000/api/v1`; interactive OpenAPI
+Alternatively, after changing into the `apix` directory, run:
+
+```bash
+python -m uvicorn api.main:app --host 127.0.0.1 --port 8001 --reload
+```
+
+The API is available at `http://127.0.0.1:8001/api/v1`; interactive OpenAPI
 documentation is at `/docs`.
 
 ### Streamlit dashboard
+
+For normal local use, start both services with one command. It starts FastAPI,
+waits for its health endpoint, then launches Streamlit. Closing Streamlit also
+stops the FastAPI process it started:
+
+```powershell
+.\.venv\Scripts\python.exe run_dashboard.py
+```
+
+This prevents the dashboard from opening before FastAPI is ready. If the
+virtual environment is new, install dependencies once first:
+
+```powershell
+.\.venv\Scripts\python.exe -m pip install -r requirements.txt
+```
+
+To run the dashboard separately (only when FastAPI is already running), use:
 
 In a second terminal:
 
@@ -132,7 +191,7 @@ In a second terminal:
 streamlit run dashboard/app.py
 ```
 
-The dashboard reads from `http://localhost:8000/api/v1` by default. Set
+The dashboard reads from `http://127.0.0.1:8001/api/v1` by default. Set
 `APIX_API_URL` to point it at another API host.
 
 ## Tests
@@ -152,16 +211,19 @@ weekly/monthly display aggregation.
 - Only `DEL-BOM` and `DEL-BLR` are supported; return fares are out of scope.
 - Only IndiGo and Ixigo are supported.
 - Only `T1`, `T7`, and `T30` are supported.
-- There is no production scheduler, authentication, streaming layer, mobile
-  app, CAPTCHA solving, proxy rotation, or anti-bot evasion.
+- There is no authentication, streaming layer, mobile app, CAPTCHA solving,
+  proxy rotation, or anti-bot evasion. The included scheduler is a lightweight
+  foreground process; production deployment should supervise it or use an OS
+  scheduler.
 - Route weights use an equal 0.5/0.5 split because verified DGCA traffic-share
   data was not bundled with the prototype.
 - When a site provides only a total fare, the cleaning pipeline estimates the
   split using `total_fare / 1.18`.
 - Source selectors and URLs are prototype-level and may need maintenance if
   either site changes its layout.
-- Live scraper execution was not verified in this environment because the
-  Playwright package/browser was unavailable.
+- The configured Ixigo results path is currently disallowed by its published
+  `robots.txt`; IndiGo may also reject the declared research-bot user agent.
+  The scraper does not bypass either restriction.
 - The dashboard back-test uses the supplied MoSPI `cpi_1059.xlsx` airfare CPI
   series and requires that file at `APIX_MOSPI_CPI_PATH` or alongside the
   project/workspace. Both series are plotted across their full available

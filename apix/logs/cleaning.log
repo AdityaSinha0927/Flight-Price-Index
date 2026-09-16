@@ -6,3 +6,56 @@
 2026-09-08 23:37:27,312 INFO missing_fare raw_quote_id=1 dropped because total_fare is null or zero
 2026-09-08 23:37:27,368 INFO statistical_outlier raw_quote_id=4 flagged using Q1=100, Q3=325, IQR=225
 2026-09-08 23:37:27,410 INFO sanity_bounds raw_quote_id=1 dropped because total_fare=500000.0 is outside (0, 200000]
+2026-09-12 11:36:46,739 INFO duplicate_removed raw_quote_id=1 cleaning_notes="duplicate removed"
+2026-09-12 11:36:46,783 INFO missing_fare raw_quote_id=1 dropped because total_fare is null or zero
+2026-09-12 11:36:46,831 INFO statistical_outlier raw_quote_id=4 flagged using Q1=100, Q3=325, IQR=225
+2026-09-12 11:36:46,866 INFO sanity_bounds raw_quote_id=1 dropped because total_fare=500000.0 is outside (0, 200000]
+2026-09-12 12:21:29,188 INFO duplicate_removed raw_quote_id=1 cleaning_notes="duplicate removed"
+2026-09-12 12:21:29,238 INFO missing_fare raw_quote_id=1 dropped because total_fare is null or zero
+2026-09-12 12:21:29,291 INFO statistical_outlier raw_quote_id=4 flagged using Q1=10000, Q3=32500, IQR=22500
+2026-09-12 12:21:29,332 INFO sanity_bounds raw_quote_id=1 dropped because total_fare=220.0 is outside [1000, 200000]
+2026-09-12 12:21:29,363 INFO sanity_bounds raw_quote_id=1 dropped because total_fare=500000.0 is outside [1000, 200000]
+2026-09-12 12:21:57,999 INFO sanity_bounds raw_quote_id=4 dropped because total_fare=200.0 is outside [1000, 200000]
+2026-09-12 12:21:57,999 INFO sanity_bounds raw_quote_id=6 dropped because total_fare=200.0 is outside [1000, 200000]
+2026-09-12 12:21:57,999 INFO sanity_bounds raw_quote_id=5 dropped because total_fare=200.0 is outside [1000, 200000]
+2026-09-12 12:21:57,999 INFO sanity_bounds raw_quote_id=10 dropped because total_fare=220.0 is outside [1000, 200000]
+2026-09-12 12:21:57,999 INFO sanity_bounds raw_quote_id=12 dropped because total_fare=240.0 is outside [1000, 200000]
+2026-09-12 12:21:57,999 INFO sanity_bounds raw_quote_id=11 dropped because total_fare=200.0 is outside [1000, 200000]
+2026-09-12 12:21:57,999 INFO sanity_bounds raw_quote_id=1 dropped because total_fare=100.0 is outside [1000, 200000]
+2026-09-12 12:21:57,999 INFO sanity_bounds raw_quote_id=3 dropped because total_fare=100.0 is outside [1000, 200000]
+2026-09-12 12:21:57,999 INFO sanity_bounds raw_quote_id=2 dropped because total_fare=100.0 is outside [1000, 200000]
+2026-09-12 12:21:58,000 INFO sanity_bounds raw_quote_id=7 dropped because total_fare=120.0 is outside [1000, 200000]
+2026-09-12 12:21:58,000 INFO sanity_bounds raw_quote_id=9 dropped because total_fare=110.0 is outside [1000, 200000]
+2026-09-12 12:21:58,000 INFO sanity_bounds raw_quote_id=8 dropped because total_fare=130.0 is outside [1000, 200000]
+2026-09-12 12:33:59,257 INFO sanity_bounds raw_quote_id=4 dropped because total_fare=200.0 is outside [1000, 200000]
+2026-09-12 12:33:59,258 INFO sanity_bounds raw_quote_id=6 dropped because total_fare=200.0 is outside [1000, 200000]
+2026-09-12 12:33:59,258 INFO sanity_bounds raw_quote_id=5 dropped because total_fare=200.0 is outside [1000, 200000]
+2026-09-12 12:33:59,258 INFO sanity_bounds raw_quote_id=10 dropped because total_fare=220.0 is outside [1000, 200000]
+2026-09-12 12:33:59,259 INFO sanity_bounds raw_quote_id=12 dropped because total_fare=240.0 is outside [1000, 200000]
+2026-09-12 12:33:59,259 INFO sanity_bounds raw_quote_id=11 dropped because total_fare=200.0 is outside [1000, 200000]
+2026-09-12 12:33:59,259 INFO sanity_bounds raw_quote_id=1 dropped because total_fare=100.0 is outside [1000, 200000]
+2026-09-12 12:33:59,259 INFO sanity_bounds raw_quote_id=3 dropped because total_fare=100.0 is outside [1000, 200000]
+2026-09-12 12:33:59,259 INFO sanity_bounds raw_quote_id=2 dropped because total_fare=100.0 is outside [1000, 200000]
+2026-09-12 12:33:59,259 INFO sanity_bounds raw_quote_id=7 dropped because total_fare=120.0 is outside [1000, 200000]
+2026-09-12 12:33:59,260 INFO sanity_bounds raw_quote_id=9 dropped because total_fare=110.0 is outside [1000, 200000]
+2026-09-12 12:33:59,260 INFO sanity_bounds raw_quote_id=8 dropped because total_fare=130.0 is outside [1000, 200000]
+2026-09-13 11:38:51,578 INFO duplicate_removed raw_quote_id=1 cleaning_notes="duplicate removed"
+2026-09-13 11:38:51,630 INFO missing_fare raw_quote_id=1 dropped because total_fare is null or zero
+2026-09-13 11:38:51,687 INFO statistical_outlier raw_quote_id=4 flagged using Q1=10000, Q3=32500, IQR=22500
+2026-09-13 11:38:51,723 INFO sanity_bounds raw_quote_id=1 dropped because total_fare=220.0 is outside [1000, 200000]
+2026-09-13 11:38:51,756 INFO sanity_bounds raw_quote_id=1 dropped because total_fare=500000.0 is outside [1000, 200000]
+2026-09-13 11:39:33,249 INFO duplicate_removed raw_quote_id=1 cleaning_notes="duplicate removed"
+2026-09-13 11:39:33,295 INFO missing_fare raw_quote_id=1 dropped because total_fare is null or zero
+2026-09-13 11:39:33,361 INFO statistical_outlier raw_quote_id=4 flagged using Q1=10000, Q3=32500, IQR=22500
+2026-09-13 11:39:33,403 INFO sanity_bounds raw_quote_id=1 dropped because total_fare=220.0 is outside [1000, 200000]
+2026-09-13 11:39:33,436 INFO sanity_bounds raw_quote_id=1 dropped because total_fare=500000.0 is outside [1000, 200000]
+2026-09-13 11:42:40,747 INFO duplicate_removed raw_quote_id=1 cleaning_notes="duplicate removed"
+2026-09-13 11:42:40,804 INFO missing_fare raw_quote_id=1 dropped because total_fare is null or zero
+2026-09-13 11:42:40,873 INFO statistical_outlier raw_quote_id=4 flagged using Q1=10000, Q3=32500, IQR=22500
+2026-09-13 11:42:40,918 INFO sanity_bounds raw_quote_id=1 dropped because total_fare=220.0 is outside [1000, 200000]
+2026-09-13 11:42:40,954 INFO sanity_bounds raw_quote_id=1 dropped because total_fare=500000.0 is outside [1000, 200000]
+2026-09-13 11:52:29,996 INFO duplicate_removed raw_quote_id=1 cleaning_notes="duplicate removed"
+2026-09-13 11:52:30,041 INFO missing_fare raw_quote_id=1 dropped because total_fare is null or zero
+2026-09-13 11:52:30,094 INFO statistical_outlier raw_quote_id=4 flagged using Q1=10000, Q3=32500, IQR=22500
+2026-09-13 11:52:30,135 INFO sanity_bounds raw_quote_id=1 dropped because total_fare=220.0 is outside [1000, 200000]
+2026-09-13 11:52:30,165 INFO sanity_bounds raw_quote_id=1 dropped because total_fare=500000.0 is outside [1000, 200000]

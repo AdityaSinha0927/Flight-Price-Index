@@ -24,6 +24,7 @@ LOG_PATH = ROOT / "logs" / "scraper_errors.log"
 USER_AGENT = "APIx-Research-Bot/0.1"
 ROUTES = {"DEL-BOM": ("DEL", "BOM"), "DEL-BLR": ("DEL", "BLR")}
 WINDOWS = {"T1": 1, "T7": 7, "T30": 30}
+MIN_TOTAL_FARE = 1_000.0
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 LOGGER = logging.getLogger("apix.scraper")
@@ -84,10 +85,23 @@ def log_error(source: str, message: str) -> None:
     LOGGER.error("[%s] %s", source, message)
 
 
-def parse_money(value: str | None) -> float | None:
+def parse_money(value: str | None, *, require_currency: bool = False) -> float | None:
+    """Return a monetary amount, never a time, flight number, or duration.
+
+    Search-result cards contain many unrelated numbers. When parsing a whole
+    card we therefore require an explicit INR marker; narrow price selectors
+    may opt out when the source omits that marker in the price field.
+    """
     if not value:
         return None
-    match = re.search(r"\d[\d,]*(?:\.\d+)?", value.replace("₹", ""))
+    match = re.search(
+        r"(?:₹|INR\.?|Rs\.?)\s*(\d[\d,]*(?:\.\d+)?)", value, flags=re.IGNORECASE
+    )
+    if match:
+        return float(match.group(1).replace(",", ""))
+    if require_currency:
+        return None
+    match = re.search(r"\d[\d,]*(?:\.\d+)?", value)
     return float(match.group(0).replace(",", "")) if match else None
 
 
@@ -109,15 +123,43 @@ def first_locator(root: Any, selectors: Iterable[str]) -> Any | None:
     return None
 
 
-def extract_lowest_quote(page: Page, selectors: dict[str, tuple[str, ...]], prefer_carrier: str | None = None) -> dict[str, Any] | None:
+def extract_lowest_quote(
+    page: Page,
+    selectors: dict[str, tuple[str, ...]],
+    prefer_carrier: str | None = None,
+    *,
+    debug_fares: bool = False,
+) -> dict[str, Any] | None:
     """Extract the lowest fare from visible result cards using source selectors."""
     cards = page.locator(selectors["card"])
     candidates: list[dict[str, Any]] = []
     for index in range(cards.count()):
         card = cards.nth(index)
         raw_text = card.inner_text().strip()
-        total = parse_money(text_from_first(card, selectors["total"]) or raw_text)
-        if total is None:
+        total_text = text_from_first(card, selectors["total"])
+        # A card also contains durations, times, and flight numbers. Never use
+        # its first bare number as a fare if a source-specific price is absent.
+        total = (
+            parse_money(total_text, require_currency=True)
+            if total_text
+            else parse_money(raw_text, require_currency=True)
+        )
+        if debug_fares:
+            LOGGER.info(
+                "fare_capture card=%s total_text=%r card_text=%r card_html=%r",
+                index,
+                total_text,
+                raw_text,
+                card.inner_html(),
+            )
+        if total is None or total < MIN_TOTAL_FARE:
+            if total is not None:
+                LOGGER.warning(
+                    "Rejected implausible fare %.2f from result card %s (fare text=%r)",
+                    total,
+                    index,
+                    total_text,
+                )
             continue
         carrier = text_from_first(card, selectors["carrier"])
         candidates.append(
@@ -168,12 +210,20 @@ def insert_quote(connection: sqlite3.Connection, quote: dict[str, Any]) -> bool:
     return cursor.rowcount == 1
 
 
-def build_quote(source: str, route: str, travel_date: date, window: str, status: str, **fields: Any) -> dict[str, Any]:
+def build_quote(
+    source: str,
+    route: str,
+    travel_date: date,
+    window: str,
+    status: str,
+    search_date: date | None = None,
+    **fields: Any,
+) -> dict[str, Any]:
     now = datetime.now(timezone.utc)
     return {
         "source": source,
         "route": route,
-        "search_date": now.date().isoformat(),
+        "search_date": (search_date or date.today()).isoformat(),
         "travel_date": travel_date.isoformat(),
         "advance_window": window,
         "scrape_status": status,
@@ -194,15 +244,22 @@ def travel_date_for(window: str, run_date: date | None = None) -> date:
     return (run_date or date.today()) + timedelta(days=WINDOWS[window])
 
 
-def is_already_scraped(connection: sqlite3.Connection, source: str, route: str, travel_date: date, window: str) -> bool:
+def is_already_scraped(
+    connection: sqlite3.Connection,
+    source: str,
+    route: str,
+    travel_date: date,
+    window: str,
+    search_date: date | None = None,
+) -> bool:
     return bool(connection.execute(
         "SELECT 1 FROM raw_quotes WHERE source=? AND route=? AND travel_date=? AND advance_window=? AND search_date=?",
-        (source, route, travel_date.isoformat(), window, date.today().isoformat()),
+        (source, route, travel_date.isoformat(), window, (search_date or date.today()).isoformat()),
     ).fetchone())
 
 
 __all__ = [
-    "DB_PATH", "DomainRateLimiter", "PlaywrightTimeoutError", "ROUTES", "USER_AGENT", "WINDOWS",
+    "DB_PATH", "DomainRateLimiter", "MIN_TOTAL_FARE", "PlaywrightTimeoutError", "ROUTES", "USER_AGENT", "WINDOWS",
     "build_quote", "extract_lowest_quote", "first_locator", "insert_quote", "is_already_scraped",
     "log_error", "open_database", "page_has_sold_out", "robots_allowed", "travel_date_for",
     "validate_inputs",

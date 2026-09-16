@@ -43,9 +43,11 @@ Output: validated rows written to `clean_quotes`.
 
 ## Step 5 — Sanity bounds
 
-- Discard (do not insert into clean_quotes) any row where `total_fare <= 0`
+- Discard (do not insert into clean_quotes) any row where `total_fare < 1000`
   or `total_fare > 200000` (INR) as a data-entry/scrape error, not a real
-  outlier fare. Log these separately from statistical outliers.
+  outlier fare. This protects the index from a fare-family badge, discount,
+  or other non-fare number captured from a search-result card. Log these
+  separately from statistical outliers.
 
 ## Output
 

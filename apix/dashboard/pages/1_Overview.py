@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 from urllib.parse import urlencode
@@ -13,7 +14,9 @@ import pandas as pd
 import plotly.express as px
 import streamlit as st
 
-API_BASE_URL = os.getenv("APIX_API_URL", "http://localhost:8000/api/v1").rstrip("/")
+# Port 8000 may be in use by another local service. APIx runs on 8001 in this
+# workspace; deployments may still override this through APIX_API_URL.
+API_BASE_URL = os.getenv("APIX_API_URL", "http://127.0.0.1:8001/api/v1").rstrip("/")
 ROUTES = ("ALL", "DEL-BOM", "DEL-BLR")
 ROUTE_LABELS = {"ALL": "Overall", "DEL-BOM": "DEL-BOM", "DEL-BLR": "DEL-BLR"}
 WINDOWS = ("T1", "T7", "T30")
@@ -94,13 +97,22 @@ def load_mospi_airfare_cpi() -> pd.DataFrame:
 
 @st.cache_data(ttl=300, show_spinner=False)
 def _fetch_json(endpoint: str, params: tuple[tuple[str, str], ...] = ()) -> dict:
+    """Fetch an API response, allowing FastAPI a brief startup window."""
     query = urlencode(params)
     url = f"{API_BASE_URL}/{endpoint.lstrip('/')}" + (f"?{query}" if query else "")
     request = Request(url, headers={"Accept": "application/json"})
-    with urlopen(request, timeout=8) as response:
-        if response.status >= 400:
-            raise RuntimeError(f"API returned HTTP {response.status}")
-        return json.loads(response.read().decode("utf-8"))
+    last_error: Exception | None = None
+    for attempt in range(5):
+        try:
+            with urlopen(request, timeout=3) as response:
+                if response.status >= 400:
+                    raise RuntimeError(f"API returned HTTP {response.status}")
+                return json.loads(response.read().decode("utf-8"))
+        except Exception as exc:
+            last_error = exc
+            if attempt < 4:
+                time.sleep(0.5)
+    raise RuntimeError(f"FastAPI at {API_BASE_URL} did not respond after 5 attempts.") from last_error
 
 
 def api_data(endpoint: str, **params):
