@@ -1,262 +1,262 @@
 # APIx — Airfare Price Index
 
-APIx is a prototype that tracks Indian domestic airfare quotes and converts
-them into a daily CPI-style price index.
+<p align="center">
+  <strong>A transparent, CPI-style price index for Indian domestic airfares.</strong><br>
+  APIx collects fare quotes, cleans and audits them, builds a daily index, and exposes the result through an API and interactive dashboard.
+</p>
 
-## Problem statement reference
+<p align="center">
+  <img alt="Python" src="https://img.shields.io/badge/Python-3.10%2B-3776AB?logo=python&logoColor=white">
+  <img alt="FastAPI" src="https://img.shields.io/badge/API-FastAPI-009688?logo=fastapi&logoColor=white">
+  <img alt="Streamlit" src="https://img.shields.io/badge/Dashboard-Streamlit-FF4B4B?logo=streamlit&logoColor=white">
+  <img alt="SQLite" src="https://img.shields.io/badge/Storage-SQLite-003B57?logo=sqlite&logoColor=white">
+  <img alt="Tests" src="https://img.shields.io/badge/tests-14%20passing-2ea44f">
+</p>
 
-SIH Statement ID 26056 addresses the gap between manually collected airfare
-components in official inflation statistics and the dynamic prices seen by
-travellers online. APIx demonstrates a small, transparent system for
-collecting online fares, cleaning them, calculating an index, serving the
-results through an API, and visualizing the trend.
+<p align="center">
+  <img src="docs/assets/apix-overview.png" alt="APIx dashboard overview showing the airfare index and price alerts" width="100%">
+</p>
 
-## What this prototype does
+APIx is a working prototype for [Smart India Hackathon problem statement 26056](docs/PROJECT_BRIEF.md). It addresses a practical gap in airfare measurement: ticket prices move continuously with route, demand, source, and booking lead time, while traditional collection is periodic and manual. APIx turns those changing online quotes into a reproducible time series without hiding the raw observations or cleaning decisions.
 
-The implemented prototype is scoped to the locked-down definition of done:
+## What the prototype covers
 
-- Scraper modules for IndiGo and Ixigo using Playwright.
-- The two one-way routes `DEL-BOM` and `DEL-BLR`.
-- Three booking windows: `T1`, `T7`, and `T30`.
-- SQLite storage for raw and clean quotes.
-- Five-step cleaning pipeline: fare decomposition, duplicate handling,
-  missing-value handling, IQR outlier flagging, and sanity bounds.
-- Daily route and combined index values using price relatives and a weighted
-  geometric mean.
-- FastAPI endpoints for index values, quotes, elasticity, and health.
-- A single-page Streamlit dashboard with trend, route comparison, elasticity,
-  back-test, and raw-data sections.
+| Dimension | Implemented scope |
+|---|---|
+| Routes | Delhi → Mumbai (<code>DEL-BOM</code>) and Delhi → Bengaluru (<code>DEL-BLR</code>) |
+| Sources | IndiGo and Ixigo |
+| Booking windows | 1, 7, and 30 days before departure (<code>T1</code>, <code>T7</code>, <code>T30</code>) |
+| Collection | Playwright scrapers with robots.txt checks, rate limiting, audit rows, and retry handling |
+| Processing | Fare decomposition, deduplication, missing-value checks, sanity bounds, and IQR outlier flags |
+| Index | Daily route indices and an overall fixed-basket index; weekly/monthly display aggregation |
+| Delivery | FastAPI JSON API and a multi-page Streamlit dashboard |
 
-## Architecture
+## How it works
 
-```text
-[Scrapers] -> [Raw Data Store] -> [Cleaning Pipeline] -> [Clean Data Store]
-                                                                |
-                                                                v
-                                                        [Index Engine]
-                                                                |
-                                                                v
-                                                   [API Layer] -> [Dashboard]
-```
+~~~mermaid
+flowchart LR
+    A[IndiGo scraper] --> C[(raw_quotes)]
+    B[Ixigo scraper] --> C
+    S[Daily scheduler] --> A
+    S --> B
+    C --> D[Cleaning pipeline]
+    D --> E[(clean_quotes)]
+    E --> F[Index engine]
+    F --> G[(index_values)]
+    E --> H[FastAPI]
+    G --> H
+    H --> I[Streamlit dashboard]
 
-## Tech stack
+    classDef source fill:#e8f1ff,stroke:#3973ac,color:#152238;
+    classDef store fill:#fff4d6,stroke:#d99b16,color:#3d2c05;
+    classDef service fill:#e5f7ef,stroke:#15805d,color:#0d3b2e;
+    class A,B,S source;
+    class C,E,G store;
+    class D,F,H,I service;
+~~~
 
-| Component | Technology | Notes |
-|---|---|---|
-| Scraper | Python + Playwright | Headless browser for JS-rendered pages |
-| Scheduler | Python daily runner | Runs both sources and then rebuilds cleaned data/index |
-| Raw data store | SQLite | `db/apix.db`, table `raw_quotes` |
-| Cleaning pipeline | Python + pandas | Writes `clean_quotes` |
-| Clean data store | SQLite | Same database file |
-| Index engine | Python + pandas/numpy | Writes `index_values` |
-| API layer | FastAPI | JSON endpoints under `/api/v1` |
-| Dashboard | Streamlit + Plotly | Single-page prototype |
+One scheduled cycle attempts all 12 source/route/window combinations. Every attempt is retained in <code>raw_quotes</code>, including <code>sold_out</code>, <code>no_results</code>, and terminal <code>error</code> results. Only successful observations enter the cleaning pipeline. Statistical outliers remain visible in <code>clean_quotes</code> with <code>is_outlier = 1</code>, but the index engine excludes them.
 
-## Setup
+The first complete day is the base period. For each route and booking window, APIx calculates a price relative:
 
-Use Python 3.10 or newer. The implementation was syntax-checked and run with
-Python 3.13 in this environment.
+$$
+r_{route,window,t} = \frac{\overline{fare}_{route,window,t}}{\overline{fare}_{route,window,base}}
+$$
 
-From the `apix` directory:
+It averages the three booking-window relatives to create a route relative, then combines the two routes with a weighted geometric mean:
 
-```bash
-pip install -r requirements.txt
-playwright install
-```
+$$
+APIx_t = 100 \times \prod_{route} R_{route,t}^{w_{route}}
+$$
 
-Initialize the SQLite database:
+The prototype uses equal route weights (<code>0.5 / 0.5</code>) until verified DGCA passenger-share weights are supplied. See [INDEX_METHODOLOGY.md](docs/INDEX_METHODOLOGY.md) for the complete calculation and back-test method.
 
-```bash
-python -c "import sqlite3; c=sqlite3.connect('db/apix.db'); c.executescript(open('db/schema.sql').read()); c.close()"
-```
+## Quick start
 
-The schema command is idempotent. The database is also initialized by the
-pipeline/API helpers when the file does not yet exist.
+Requirements: Python 3.10 or newer. Python 3.13.5 is verified on this checkout.
 
-## How to run
+~~~bash
+git clone https://github.com/AdityaSinha0927/Flight-Price-Index.git
+cd Flight-Price-Index/apix
+python -m venv .venv
+~~~
 
-### Scrapers
+Activate the environment:
 
-Run one route/window manually after installing Playwright and its browser:
+~~~powershell
+# Windows PowerShell
+.\.venv\Scripts\Activate.ps1
+~~~
 
-```bash
-python -c "from scraper.indigo_scraper import scrape; print(scrape('DEL-BOM', 'T1'))"
-python -c "from scraper.ixigo_scraper import scrape; print(scrape('DEL-BLR', 'T7'))"
-```
+~~~bash
+# macOS / Linux
+source .venv/bin/activate
+~~~
 
-Each scraper checks `robots.txt`, uses a descriptive user agent, waits 3–6
-seconds between requests to the same domain, retries one failed page once
-after 30 seconds, and writes audit rows to `raw_quotes`.
+Install the application and the Playwright browser:
 
-For selector troubleshooting during an authorized run, set
-`APIX_DEBUG_FARE_CAPTURE=1`. The scraper logs the selected fare element's text
-and result-card HTML, while rejecting a value below INR 1,000 as an
-implausible payable airfare.
+~~~bash
+python -m pip install -r requirements.txt
+python -m playwright install chromium
+~~~
 
-The runner and browser dependency are locally testable, but the configured
-live sources may refuse automated collection. Ixigo's current `robots.txt`
-disallows `/search/result/`, which is the configured flight-results path, and
-IndiGo returned HTTP 403 when the declared research-bot user agent requested
-its `robots.txt`. The scraper fails closed in both cases and the daily summary
-will report fewer than 12 stored rows. Use an authorized source/API before
-relying on this prototype for unattended live data.
+Seed the clearly labelled offline demo data, clean it, and build the index:
 
-### Offline demo data
-
-If authorized live collection is unavailable, seed a clearly labelled
-`demo` source with realistic INR fares for a dashboard demonstration:
-
-```bash
+~~~bash
 python -m db.seed_demo
 python -m pipeline.clean
 python -m index.build_index
-```
+~~~
 
-These rows are marked `IndiGo (demo)` and `demo / not live quote`; they are
-only for demonstrating the dashboard and index mechanics.
+Start the API and dashboard together:
 
-### Daily runner and scheduler
+~~~bash
+python run_dashboard.py
+~~~
 
-Use the combined runner instead of invoking one source at a time. One run
-attempts all 2 sources x 2 routes x 3 windows and prints a summary showing how
-many of the expected 12 audit rows are actually stored. It then runs the
-cleaning pipeline and index builder:
+Open <code>http://localhost:8501</code>. The launcher starts FastAPI on <code>http://127.0.0.1:8001</code>, waits for its health check, and then starts Streamlit. Closing Streamlit also stops the API process started by the launcher.
 
-```bash
+## Dashboard
+
+The Streamlit interface is organized around three questions:
+
+- **Overview:** What is the current index, how is it moving, and how do routes and booking windows compare?
+- **Insights:** Which booking window has been cheapest, and which route is showing the largest day-to-day fare swing?
+- **Raw Data:** Which observations and cleaning decisions produced the result?
+
+<table>
+  <tr>
+    <td width="50%"><img src="docs/assets/apix-insights.png" alt="APIx insights page"></td>
+    <td width="50%"><img src="docs/assets/apix-raw-data.png" alt="APIx cleaned raw data page"></td>
+  </tr>
+  <tr>
+    <td align="center"><strong>Derived booking and volatility insights</strong></td>
+    <td align="center"><strong>Auditable cleaned quote records</strong></td>
+  </tr>
+</table>
+
+The overview also supports daily, weekly, and monthly index views, route comparison, lead-time elasticity, recent cleaned quotes, cached last-known data, and a rebased comparison with the official MoSPI airfare CPI when <code>cpi_1059.xlsx</code> is available.
+
+## Run the data pipeline
+
+Run one complete collection and processing cycle:
+
+~~~bash
 python -m scraper.scheduler
-```
+~~~
 
-That command performs one daily cycle and exits. To keep a process running,
-execute a cycle immediately and then repeat it every day at 06:00 local time:
+Keep the scheduler running and execute every day at 06:00 local time:
 
-```bash
+~~~bash
 python -m scraper.scheduler --loop --at 06:00
-```
+~~~
 
-Leave that terminal/process running, or configure the one-shot command in
-Windows Task Scheduler. Re-running on the same date is safe: the database
-uniqueness constraint prevents duplicate route/source/window rows.
+Useful one-off commands:
 
-### Cleaning pipeline
+~~~bash
+# Run a historical/date-specific collection attempt
+python -m scraper.scheduler --date 2026-09-22
 
-```bash
+# Rebuild clean_quotes from raw_quotes
 python -m pipeline.clean
-```
 
-### Index engine
-
-```bash
+# Rebuild index_values from clean_quotes
 python -m index.build_index
-```
+~~~
 
-### FastAPI server
+Re-running the collector for the same source, route, booking window, and search date is safe: the database uniqueness constraint prevents duplicate audit rows.
 
-From the workspace root (`FPI`), run:
+### Scraping behavior
 
-```bash
-python -m uvicorn apix.api.main:app --host 127.0.0.1 --port 8001 --reload
-```
+The scraper deliberately favors responsible failure over evasion. It:
 
-Alternatively, after changing into the `apix` directory, run:
+- checks each source's <code>robots.txt</code> and fails closed when access cannot be confirmed;
+- identifies itself as <code>APIx-Research-Bot/0.1</code>;
+- waits a randomized 3–6 seconds between requests to the same domain;
+- retries one failed page once after 30 seconds;
+- records unsuccessful attempts instead of silently dropping them;
+- does not use CAPTCHA solving, proxy rotation, stealth plugins, or browser impersonation.
 
-```bash
+Commercial flight sites frequently change markup or restrict automated result pages. At the time this prototype was validated, Ixigo disallowed its configured results path and IndiGo rejected the declared research-bot request to <code>robots.txt</code>. The repository therefore includes a labelled <code>demo</code> data source for deterministic evaluation. Use an authorized feed or commercial API before unattended production collection.
+
+## API
+
+Start the API independently:
+
+~~~bash
 python -m uvicorn api.main:app --host 127.0.0.1 --port 8001 --reload
-```
+~~~
 
-The API is available at `http://127.0.0.1:8001/api/v1`; interactive OpenAPI
-documentation is at `/docs`.
+Interactive OpenAPI documentation is available at <code>http://127.0.0.1:8001/docs</code>.
 
-### Streamlit dashboard
+| Endpoint | Purpose | Key query parameters |
+|---|---|---|
+| <code>GET /api/v1/health</code> | Service status and latest scrape timestamp | — |
+| <code>GET /api/v1/index</code> | Daily, weekly, or monthly index series | <code>route</code>, <code>freq</code>, <code>start_date</code>, <code>end_date</code> |
+| <code>GET /api/v1/quotes</code> | Cleaned observations for audit and analysis | <code>route</code>, <code>advance_window</code>, date range |
+| <code>GET /api/v1/elasticity</code> | Mean fare by booking window | <code>route</code> |
 
-For normal local use, start both services with one command. It starts FastAPI,
-waits for its health endpoint, then launches Streamlit. Closing Streamlit also
-stops the FastAPI process it started:
+Example:
 
-```powershell
-.\.venv\Scripts\python.exe run_dashboard.py
-```
+~~~bash
+curl "http://127.0.0.1:8001/api/v1/index?route=ALL&freq=daily"
+~~~
 
-This prevents the dashboard from opening before FastAPI is ready. If the
-virtual environment is new, install dependencies once first:
+~~~json
+{
+  "route": "ALL",
+  "freq": "daily",
+  "base_period": "2026-09-07",
+  "data": [
+    {"date": "2026-09-07", "index_value": 100.0},
+    {"date": "2026-09-08", "index_value": 114.89125293076054}
+  ]
+}
+~~~
 
-```powershell
-.\.venv\Scripts\python.exe -m pip install -r requirements.txt
-```
+## Project structure
 
-To run the dashboard separately (only when FastAPI is already running), use:
+~~~text
+apix/
+├── scraper/          Playwright source adapters, shared controls, scheduler
+├── pipeline/         Cleaning rules and raw → clean transformation
+├── index/            Fixed-basket index calculation and aggregation
+├── api/              FastAPI application and response models
+├── dashboard/        Streamlit entry point and dashboard pages
+├── db/               SQLite schema, database, and demo-data seeder
+├── tests/            Cleaning, index, parser, API, and scheduler tests
+├── docs/             Specifications, methodology, and project visuals
+├── run_dashboard.py  Combined local API/dashboard launcher
+└── requirements.txt
+~~~
 
-In a second terminal:
+The design documents are intentionally kept alongside the code:
 
-```bash
-streamlit run dashboard/app.py
-```
-
-The dashboard reads from `http://127.0.0.1:8001/api/v1` by default. Set
-`APIX_API_URL` to point it at another API host.
+- [Architecture](docs/ARCHITECTURE.md)
+- [Data schema](docs/DATA_SCHEMA.md)
+- [Cleaning rules](docs/CLEANING_RULES.md)
+- [Index methodology](docs/INDEX_METHODOLOGY.md)
+- [API contract](docs/API_SPEC.md)
+- [Scraper specification](docs/SCRAPER_SPEC.md)
+- [Dashboard specification](docs/DASHBOARD_SPEC.md)
 
 ## Tests
 
-Run the full test suite from the project root:
-
-```bash
+~~~bash
 pytest -q
-```
+~~~
 
-The verified suite contains eight passing unit tests covering the cleaning
-rules, price-relative index calculation, base-period normalization, and
-weekly/monthly display aggregation.
+Current result: **14 tests passing**. The suite covers fare decomposition, duplicate handling, sanity bounds, IQR outlier flags, parser safeguards, scheduler idempotency, API behavior, base-period normalization, price-relative calculations, and weekly/monthly aggregation.
 
-## Known limitations
+## Current limitations
 
-- Only `DEL-BOM` and `DEL-BLR` are supported; return fares are out of scope.
-- Only IndiGo and Ixigo are supported.
-- Only `T1`, `T7`, and `T30` are supported.
-- There is no authentication, streaming layer, mobile app, CAPTCHA solving,
-  proxy rotation, or anti-bot evasion. The included scheduler is a lightweight
-  foreground process; production deployment should supervise it or use an OS
-  scheduler.
-- Route weights use an equal 0.5/0.5 split because verified DGCA traffic-share
-  data was not bundled with the prototype.
-- When a site provides only a total fare, the cleaning pipeline estimates the
-  split using `total_fare / 1.18`.
-- Source selectors and URLs are prototype-level and may need maintenance if
-  either site changes its layout.
-- The configured Ixigo results path is currently disallowed by its published
-  `robots.txt`; IndiGo may also reject the declared research-bot user agent.
-  The scraper does not bypass either restriction.
-- The dashboard back-test uses the supplied MoSPI `cpi_1059.xlsx` airfare CPI
-  series and requires that file at `APIX_MOSPI_CPI_PATH` or alongside the
-  project/workspace. Both series are plotted across their full available
-  ranges; non-overlapping periods are marked as a publication gap.
-- Weekly and monthly index values are display-time averages of daily values;
-  they are not separate scraping pipelines.
+- The prototype is intentionally limited to two one-way routes, two sources, and three booking windows.
+- Route weights are equal until verified passenger-share data is integrated.
+- A total-only fare is decomposed using <code>base_fare = total_fare / 1.18</code>; the record is marked <code>tax split estimated</code>.
+- Source URLs and DOM selectors require maintenance when booking sites change.
+- The included scheduler is a foreground process. A deployment should supervise it with an operating-system scheduler or service manager.
+- The MoSPI comparison requires <code>cpi_1059.xlsx</code> through <code>APIX_MOSPI_CPI_PATH</code> or in the project/workspace. It is a rebased trend comparison, not an exact level match.
 
-## Back-test results
+## Team
 
-The dashboard loads the supplied official MoSPI CPI workbook, filters it to
-`All India` / `Combined`, and uses its domestic-airfare index for January 2025
-through July 2026. It joins that series to APIx's monthly `ALL` index by
-year-month and independently rebases both series to 100 at the first
-overlapping month. The resulting chart is a trend comparison, not an exact
-index-level comparison.
-
-## Ethical scraping note
-
-The scraper implementation:
-
-- Fetches and checks each target domain's `robots.txt` before scraping and
-  fails closed when the check cannot be completed.
-- Uses `APIx-Research-Bot/0.1` rather than impersonating a browser.
-- Enforces a randomized 3–6 second delay between same-domain requests.
-- Records `sold_out`, `no_results`, and final `error` attempts in SQLite.
-- Retries a failed page once after 30 seconds and logs the failure.
-- Enforces one source/route/window scrape per search date through the database
-  uniqueness constraint.
-
-No CAPTCHA-solving service, proxy/IP rotation, stealth plugin, or other
-anti-bot evasion technique is included.
-
-## Team / credits
-
-APIx prototype team and contributors. Implementation scaffolding and code
-assistance were provided by Codex.
+Built as the **GIT PASS** prototype for Smart India Hackathon 2026. Code scaffolding and implementation assistance were provided by OpenAI Codex.
